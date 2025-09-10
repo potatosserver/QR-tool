@@ -294,9 +294,7 @@
                     height: 200,
                     type: 'svg',
                     data: encodedText,
-                    // ########## START: QUIET ZONE FIX ##########
-                    margin: 10, // 【修正】增加 10px 的靜區 (Quiet Zone) 留白，確保掃描成功率
-                    // ########## END: QUIET ZONE FIX ##########
+                    margin: 5, // 【調整】將靜區留白改為 5px，讓邊框變細
                     dotsOptions: {
                         type: style
                     },
