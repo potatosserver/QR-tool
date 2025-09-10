@@ -294,7 +294,7 @@
                     height: 200,
                     type: 'svg',
                     data: encodedText,
-                    margin: 5, // 【調整】將靜區留白改為 5px，讓邊框變細
+                    margin: 5,
                     dotsOptions: {
                         type: style
                     },
@@ -430,6 +430,7 @@
             }
         });
 
+        // ########## START: MODIFIED UPLOAD HANDLER ##########
         uploadFab.addEventListener('click', () => qrImageInput.click());
         qrImageInput.addEventListener('change', (e) => {
             if (e.target.files && e.target.files.length > 0) {
@@ -438,17 +439,35 @@
                 qrReaderDiv.style.display = 'block';
                 scannerMessage.style.display = 'none';
 
-                 if (!html5QrCode) {
+                if (!html5QrCode) {
                     html5QrCode = new Html5Qrcode("qr-reader", { verbose: false });
-                 }
+                }
 
-                html5QrCode.scanFile(imageFile, true)
-                    .then(onScanSuccess)
-                    .catch(err => {
-                        showScannerMessage(`從圖片掃描失敗: ${err}\n\n請確認圖片清晰且包含完整的 QR Code。`);
-                    });
+                // 【修正】使用 FileReader 將圖片轉為 Data URI 來避免 CORS 和 Canvas 污染問題
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const dataUri = event.target.result;
+                    
+                    const image = new Image();
+                    image.src = dataUri;
+                    image.onload = () => {
+                        html5QrCode.scanFile(image, true)
+                            .then(onScanSuccess)
+                            .catch(err => {
+                                showScannerMessage(`從圖片掃描失敗: ${err}\n\n請確認圖片清晰且包含完整的 QR Code。`);
+                            });
+                    };
+                    image.onerror = () => {
+                        showScannerMessage(`無法載入圖片檔案。`);
+                    }
+                };
+                reader.onerror = () => {
+                     showScannerMessage(`讀取檔案失敗。`);
+                };
+                reader.readAsDataURL(imageFile); // 啟動讀取
             }
         });
+        // ########## END: MODIFIED UPLOAD HANDLER ##########
 
         // --- 手勢滑動切換 ---
         let touchstartX = 0;
