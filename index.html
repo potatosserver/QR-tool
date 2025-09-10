@@ -19,15 +19,13 @@
       import {styles as typescaleStyles} from '@material/web/typography/md-typescale-styles.js';
       document.adoptedStyleSheets.push(typescaleStyles.styleSheet);
     </script>
-    <!-- 【更換】引入新的 QR Code 函式庫 -->
     <script src="https://unpkg.com/qr-code-styling@1.6.0/lib/qr-code-styling.js"></script>
     
     <style>
-        /* 【新增】處理 FOUC (未樣式化內容閃爍) 問題 */
         body {
-            visibility: hidden; /* 先隱藏內容 */
+            visibility: hidden;
             opacity: 0;
-            transition: opacity 0.2s ease-in; /* 讓內容平滑地顯示 */
+            transition: opacity 0.2s ease-in;
         }
         :root {
             --md-sys-color-background: #fef7ff;
@@ -83,7 +81,6 @@
             justify-content: center;
             align-items: center;
         }
-
         #qr-placeholder {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -103,7 +100,6 @@
          #qr-placeholder p {
              margin-top: 8px;
          }
-
         md-outlined-text-field, md-outlined-select {
             width: 100%;
             margin-top: 8px;
@@ -112,8 +108,6 @@
             text-align: center;
             margin: 16px 0;
         }
-
-        /* --- 掃描模式樣式 --- */
         #scan-panel {
             display: flex;
             flex-direction: column;
@@ -142,16 +136,12 @@
             width: 100%;
             height: 100%;
         }
-
-        /* --- 統一浮動按鈕樣式 --- */
         #download-fab, #upload-fab {
             position: fixed;
             bottom: 96px;
             right: 24px;
             z-index: 101;
         }
-
-        /* --- 底部導覽欄樣式 --- */
         .bottom-nav {
             position: fixed;
             bottom: 0;
@@ -161,8 +151,6 @@
             box-shadow: 0 -1px 3px rgba(0,0,0,0.1);
             z-index: 100;
         }
-
-        /* --- Dialog 樣式 --- */
         md-dialog {
             --md-dialog-container-color: var(--md-sys-color-surface-container-high);
         }
@@ -179,8 +167,6 @@
         <div id="generate-panel" class="tab-content" role="tabpanel" aria-labelledby="generate-tab">
             <div>
                 <md-outlined-text-field label="輸入文字或網址" id="qr-text"></md-outlined-text-field>
-                
-                <!-- 【新增】風格選擇下拉選單 -->
                 <md-outlined-select label="點陣風格" id="dot-style-select">
                     <md-select-option selected value="square"><div slot="headline">方形</div></md-select-option>
                     <md-select-option value="dots"><div slot="headline">圓點</div></md-select-option>
@@ -189,7 +175,6 @@
                     <md-select-option value="classy"><div slot="headline">優雅</div></md-select-option>
                     <md-select-option value="classy-rounded"><div slot="headline">優雅圓角</div></md-select-option>
                 </md-outlined-select>
-
                 <div class="generate-btn-container">
                     <md-filled-button id="generate-btn">生成 QR Code</md-filled-button>
                 </div>
@@ -202,7 +187,6 @@
                 </div>
             </div>
         </div>
-
         <!-- 掃描模式面板 -->
         <div id="scan-panel" class="tab-content" role="tabpanel" aria-labelledby="scan-tab">
             <div id="qr-reader-container">
@@ -247,27 +231,23 @@
 </md-fab>
 <input type="file" id="qr-image-input" accept="image/*" style="display: none;">
 
-
-<!-- 【移除】舊的 qrcode.js 函式庫 -->
 <script src="https://unpkg.com/html5-qrcode/html5-qrcode.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // 【新增】在 DOM 載入完成後，將 body 設為可見，解決 FOUC 問題
         document.body.style.visibility = 'visible';
         document.body.style.opacity = '1';
 
         const generateTab = document.getElementById('generate-tab');
         const scanTab = document.getElementById('scan-tab');
         const panelsContainer = document.querySelector('.panels-container');
-
         const qrReaderDiv = document.getElementById('qr-reader');
         const scannerMessage = document.getElementById('scanner-message');
-
         const downloadFab = document.getElementById('download-fab');
         const uploadFab = document.getElementById('upload-fab');
 
         let html5QrCode;
         let isCameraActive = false;
+        let currentQrCodeInstance = null; 
 
         function switchTabs(isGenerate) {
             panelsContainer.style.transform = isGenerate ? 'translateX(0%)' : 'translateX(-50%)';
@@ -276,7 +256,7 @@
 
             if (isGenerate) {
                 uploadFab.style.display = 'none';
-                if (document.querySelector('#qrcode canvas, #qrcode svg')) { // 檢查 canvas 或 svg 是否存在
+                if (currentQrCodeInstance) {
                     downloadFab.style.display = 'flex';
                 }
                 stopScanning();
@@ -297,39 +277,38 @@
         const qrPlaceholder = document.getElementById('qr-placeholder');
         const dotStyleSelect = document.getElementById('dot-style-select');
 
-        // 【更換】使用新的 QR Code Styling 函式庫初始化
-        const qrCode = new QRCodeStyling({
-            width: 200,
-            height: 200,
-            type: 'svg',
-            dotsOptions: {
-                type: 'square'
-            },
-            qrOptions: {
-                errorCorrectionLevel: 'H'
-            },
-            backgroundOptions: {
-                color: "#ffffff", // 【修改】確保背景為白色
-            }
-        });
-        qrCode.append(qrcodeContainer); // 將 QR Code 附加到容器中
-        qrcodeContainer.style.display = 'none'; // 初始隱藏
-
         function generateQrCode() {
-            const text = qrTextInput.value.trim();
+            const text = qrTextInput.value;
             const style = dotStyleSelect.value;
+
+            qrcodeContainer.innerHTML = '';
 
             if (text) {
                 qrPlaceholder.style.display = 'none';
                 qrcodeContainer.style.display = 'flex';
                 
-                // 【更新】使用 update 方法更新 QR Code 內容和樣式
-                qrCode.update({
-                    data: text,
+                const encodedText = unescape(encodeURIComponent(text));
+
+                currentQrCodeInstance = new QRCodeStyling({
+                    width: 200,
+                    height: 200,
+                    type: 'svg',
+                    data: encodedText,
+                    // ########## START: QUIET ZONE FIX ##########
+                    margin: 10, // 【修正】增加 10px 的靜區 (Quiet Zone) 留白，確保掃描成功率
+                    // ########## END: QUIET ZONE FIX ##########
                     dotsOptions: {
                         type: style
+                    },
+                    qrOptions: {
+                        errorCorrectionLevel: 'H'
+                    },
+                    backgroundOptions: {
+                        color: "#ffffff",
                     }
                 });
+
+                currentQrCodeInstance.append(qrcodeContainer);
 
                 if (generateTab.selected) {
                    downloadFab.style.display = 'flex';
@@ -338,21 +317,21 @@
                 qrcodeContainer.style.display = 'none';
                 qrPlaceholder.style.display = 'flex';
                 downloadFab.style.display = 'none';
+                currentQrCodeInstance = null;
             }
         }
+
+        downloadFab.addEventListener('click', () => {
+            if (currentQrCodeInstance) {
+                currentQrCodeInstance.download({ name: 'qrcode', extension: 'png' });
+            }
+        });
 
         generateBtn.addEventListener('click', generateQrCode);
         qrTextInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') generateQrCode();
         });
-        dotStyleSelect.addEventListener('change', generateQrCode); // 風格改變時也重新生成
-
-        // 【修正】下載功能，使用新函式庫的 download 方法
-        downloadFab.addEventListener('click', () => {
-            if (qrCode) {
-                qrCode.download({ name: 'qrcode', extension: 'png' });
-            }
-        });
+        dotStyleSelect.addEventListener('change', generateQrCode);
 
         // --- 掃描模式 ---
         const resultDialog = document.getElementById('result-dialog');
@@ -431,9 +410,26 @@
         });
 
         copyResultBtn.addEventListener('click', () => {
-            navigator.clipboard.writeText(dialogContent.innerText)
-                .then(() => { console.log('複製成功'); })
-                .catch(err => console.error('複製失敗:', err));
+            const textToCopy = dialogContent.innerText;
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(textToCopy)
+                    .then(() => { console.log('使用 Clipboard API 複製成功'); })
+                    .catch(err => { console.error('使用 Clipboard API 複製失敗:', err); });
+            } else {
+                const textArea = document.createElement('textarea');
+                textArea.value = textToCopy;
+                textArea.style.position = 'absolute';
+                textArea.style.left = '-9999px';
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    console.log('使用 execCommand 複製成功');
+                } catch (err) {
+                    console.error('使用 execCommand 複製失敗:', err);
+                }
+                document.body.removeChild(textArea);
+            }
         });
 
         uploadFab.addEventListener('click', () => qrImageInput.click());
@@ -441,6 +437,8 @@
             if (e.target.files && e.target.files.length > 0) {
                 const imageFile = e.target.files[0];
                 stopScanning();
+                qrReaderDiv.style.display = 'block';
+                scannerMessage.style.display = 'none';
 
                  if (!html5QrCode) {
                     html5QrCode = new Html5Qrcode("qr-reader", { verbose: false });
@@ -449,7 +447,7 @@
                 html5QrCode.scanFile(imageFile, true)
                     .then(onScanSuccess)
                     .catch(err => {
-                        alert(`從圖片掃描失敗: ${err}`);
+                        showScannerMessage(`從圖片掃描失敗: ${err}\n\n請確認圖片清晰且包含完整的 QR Code。`);
                     });
             }
         });
