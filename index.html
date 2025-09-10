@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Material 3 QR Code 工具</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+
+    <script type="importmap">
+    {
+      "imports": {
+        "@material/web/": "https://esm.run/@material/web/"
+      }
+    }
+    </script>
+    <script type="module">
+      import '@material/web/all.js';
+      import {styles as typescaleStyles} from '@material/web/typography/md-typescale-styles.js';
+      document.adoptedStyleSheets.push(typescaleStyles.styleSheet);
+    </script>
+    <!-- 【更換】引入新的 QR Code 函式庫 -->
+    <script src="https://unpkg.com/qr-code-styling@1.6.0/lib/qr-code-styling.js"></script>
+    
+    <style>
+        :root {
+            --md-sys-color-background: #fef7ff;
+            --md-sys-color-on-background: #1d1b20;
+            --md-sys-color-surface-container-high: #ece6f0;
+            --md-sys-color-outline-variant: #cac4d0;
+            --md-sys-color-on-surface-variant: #49454f;
+            --md-sys-color-surface-container: #f3edf7;
+        }
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--md-sys-color-background);
+            color: var(--md-sys-color-on-background);
+            margin: 0;
+            padding: 16px;
+            padding-bottom: 80px;
+        }
+        md-icon {
+            font-family: 'Material Symbols Outlined';
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            overflow: hidden;
+            position: relative;
+        }
+        .panels-container {
+            display: flex;
+            transition: transform 0.3s ease-in-out;
+            width: 200%;
+        }
+        .tab-content {
+            padding: 24px;
+            border: 1px solid var(--md-sys-color-outline-variant);
+            border-radius: 12px;
+            margin-top: 16px;
+            position: relative;
+            width: 50%;
+            flex-shrink: 0;
+            box-sizing: border-box;
+            min-height: 450px;
+        }
+        #qr-generator-output-container {
+             display: flex;
+             justify-content: center;
+             align-items: center;
+             position: relative;
+             min-height: 220px;
+             margin-top: 16px;
+        }
+        #qrcode {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #qr-placeholder {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            color: var(--md-sys-color-on-surface-variant);
+        }
+        #qr-placeholder md-icon {
+            font-size: 64px;
+            width: 64px;
+            height: 64px;
+            color: var(--md-sys-color-outline-variant);
+        }
+         #qr-placeholder p {
+             margin-top: 8px;
+         }
+
+        md-outlined-text-field, md-outlined-select {
+            width: 100%;
+            margin-top: 8px;
+        }
+        .generate-btn-container {
+            text-align: center;
+            margin: 16px 0;
+        }
+
+        /* --- 掃描模式樣式 --- */
+        #scan-panel {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 8px;
+        }
+        #qr-reader-container {
+            width: 100%;
+            max-width: 500px;
+            aspect-ratio: 1/1;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            background-color: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #scanner-message {
+            text-align: center;
+            color: var(--md-sys-color-on-surface-variant);
+            padding: 20px;
+        }
+        #qr-reader {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* --- 統一浮動按鈕樣式 --- */
+        #download-fab, #upload-fab {
+            position: fixed;
+            bottom: 96px;
+            right: 24px;
+            z-index: 101;
+        }
+
+        /* --- 底部導覽欄樣式 --- */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: var(--md-sys-color-surface-container);
+            box-shadow: 0 -1px 3px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+
+        /* --- Dialog 樣式 --- */
+        md-dialog {
+            --md-dialog-container-color: var(--md-sys-color-surface-container-high);
+        }
+        #dialog-content {
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="panels-container">
+        <!-- 生成模式面板 -->
+        <div id="generate-panel" class="tab-content" role="tabpanel" aria-labelledby="generate-tab">
+            <div>
+                <md-outlined-text-field label="輸入文字或網址" id="qr-text"></md-outlined-text-field>
+                
+                <!-- 【新增】風格選擇下拉選單 -->
+                <md-outlined-select label="點陣風格" id="dot-style-select">
+                    <md-select-option selected value="square"><div slot="headline">方形</div></md-select-option>
+                    <md-select-option value="dots"><div slot="headline">圓點</div></md-select-option>
+                    <md-select-option value="rounded"><div slot="headline">圓角</div></md-select-option>
+                    <md-select-option value="extra-rounded"><div slot="headline">特圓角</div></md-select-option>
+                    <md-select-option value="classy"><div slot="headline">優雅</div></md-select-option>
+                    <md-select-option value="classy-rounded"><div slot="headline">優雅圓角</div></md-select-option>
+                </md-outlined-select>
+
+                <div class="generate-btn-container">
+                    <md-filled-button id="generate-btn">生成 QR Code</md-filled-button>
+                </div>
+                <div id="qr-generator-output-container">
+                    <div id="qrcode"></div>
+                    <div id="qr-placeholder">
+                        <md-icon>qr_code</md-icon>
+                        <p>QR Code 將顯示於此</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 掃描模式面板 -->
+        <div id="scan-panel" class="tab-content" role="tabpanel" aria-labelledby="scan-tab">
+            <div id="qr-reader-container">
+                <div id="qr-reader"></div>
+                <div id="scanner-message" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 掃描結果對話框 -->
+<md-dialog id="result-dialog">
+    <div slot="headline">掃描成功</div>
+    <div slot="content" id="dialog-content"></div>
+    <div slot="actions">
+        <md-text-button id="open-link-btn" style="display: none;">開啟網址</md-text-button>
+        <md-text-button id="copy-result-btn">複製</md-text-button>
+        <md-text-button id="close-dialog-btn">關閉</md-text-button>
+    </div>
+</md-dialog>
+
+<!-- 底部導覽欄 -->
+<div class="bottom-nav">
+    <md-tabs aria-label="QR Code 工具">
+        <md-primary-tab id="generate-tab" aria-controls="generate-panel" selected>
+            <md-icon slot="icon">qr_code_2</md-icon>
+            生成模式
+        </md-primary-tab>
+        <md-primary-tab id="scan-tab" aria-controls="scan-panel">
+            <md-icon slot="icon">qr_code_scanner</md-icon>
+            掃描模式
+        </md-primary-tab>
+    </md-tabs>
+</div>
+
+<!-- 浮動按鈕 -->
+<md-fab id="download-fab" variant="primary" aria-label="下載 QR Code" style="display: none;">
+    <md-icon slot="icon">download</md-icon>
+</md-fab>
+<md-fab id="upload-fab" variant="tertiary" aria-label="上傳圖片掃描" style="display: none;">
+    <md-icon slot="icon">upload_file</md-icon>
+</md-fab>
+<input type="file" id="qr-image-input" accept="image/*" style="display: none;">
+
+
+<!-- 【移除】舊的 qrcode.js 函式庫 -->
+<script src="https://unpkg.com/html5-qrcode/html5-qrcode.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const generateTab = document.getElementById('generate-tab');
+        const scanTab = document.getElementById('scan-tab');
+        const panelsContainer = document.querySelector('.panels-container');
+
+        const qrReaderDiv = document.getElementById('qr-reader');
+        const scannerMessage = document.getElementById('scanner-message');
+
+        const downloadFab = document.getElementById('download-fab');
+        const uploadFab = document.getElementById('upload-fab');
+
+        let html5QrCode;
+        let isCameraActive = false;
+
+        function switchTabs(isGenerate) {
+            panelsContainer.style.transform = isGenerate ? 'translateX(0%)' : 'translateX(-50%)';
+            generateTab.selected = isGenerate;
+            scanTab.selected = !isGenerate;
+
+            if (isGenerate) {
+                uploadFab.style.display = 'none';
+                if (document.querySelector('#qrcode canvas')) { // 檢查 canvas 是否存在
+                    downloadFab.style.display = 'flex';
+                }
+                stopScanning();
+            } else {
+                downloadFab.style.display = 'none';
+                uploadFab.style.display = 'flex';
+                startScanning();
+            }
+        }
+
+        generateTab.addEventListener('click', () => switchTabs(true));
+        scanTab.addEventListener('click', () => switchTabs(false));
+
+        // --- 生成模式 ---
+        const generateBtn = document.getElementById('generate-btn');
+        const qrTextInput = document.getElementById('qr-text');
+        const qrcodeContainer = document.getElementById('qrcode');
+        const qrPlaceholder = document.getElementById('qr-placeholder');
+        const dotStyleSelect = document.getElementById('dot-style-select');
+
+        // 【更換】使用新的 QR Code Styling 函式庫初始化
+        const qrCode = new QRCodeStyling({
+            width: 200,
+            height: 200,
+            type: 'svg',
+            dotsOptions: {
+                type: 'square'
+            },
+            qrOptions: {
+                errorCorrectionLevel: 'H'
+            },
+            backgroundOptions: {
+                color: "transparent",
+            }
+        });
+        qrCode.append(qrcodeContainer); // 將 QR Code 附加到容器中
+        qrcodeContainer.style.display = 'none'; // 初始隱藏
+
+        function generateQrCode() {
+            const text = qrTextInput.value.trim();
+            const style = dotStyleSelect.value;
+
+            if (text) {
+                qrPlaceholder.style.display = 'none';
+                qrcodeContainer.style.display = 'flex';
+                
+                // 【更新】使用 update 方法更新 QR Code 內容和樣式
+                qrCode.update({
+                    data: text,
+                    dotsOptions: {
+                        type: style
+                    }
+                });
+
+                if (generateTab.selected) {
+                   downloadFab.style.display = 'flex';
+                }
+            } else {
+                qrcodeContainer.style.display = 'none';
+                qrPlaceholder.style.display = 'flex';
+                downloadFab.style.display = 'none';
+            }
+        }
+
+        generateBtn.addEventListener('click', generateQrCode);
+        qrTextInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') generateQrCode();
+        });
+        dotStyleSelect.addEventListener('change', generateQrCode); // 風格改變時也重新生成
+
+        // 【修正】下載功能，使用新函式庫的 download 方法
+        downloadFab.addEventListener('click', () => {
+            if (qrCode) {
+                qrCode.download({ name: 'qrcode', extension: 'png' });
+            }
+        });
+
+        // --- 掃描模式 ---
+        const resultDialog = document.getElementById('result-dialog');
+        const dialogContent = document.getElementById('dialog-content');
+        const copyResultBtn = document.getElementById('copy-result-btn');
+        const openLinkBtn = document.getElementById('open-link-btn');
+        const closeDialogBtn = document.getElementById('close-dialog-btn');
+        const qrImageInput = document.getElementById('qr-image-input');
+
+        closeDialogBtn.addEventListener('click', () => resultDialog.close());
+
+        const onScanSuccess = (decodedText, decodedResult) => {
+            stopScanning();
+            dialogContent.innerText = decodedText;
+
+            try {
+                const url = new URL(decodedText);
+                if (url.protocol === "http:" || url.protocol === "https:") {
+                    openLinkBtn.style.display = 'block';
+                    openLinkBtn.onclick = () => window.open(decodedText, '_blank');
+                } else {
+                    openLinkBtn.style.display = 'none';
+                }
+            } catch (_) {
+                openLinkBtn.style.display = 'none';
+            }
+
+            resultDialog.show();
+        };
+
+        const onScanFailure = (error) => {};
+
+        function showScannerMessage(message) {
+            qrReaderDiv.style.display = 'none';
+            scannerMessage.style.display = 'block';
+            scannerMessage.innerText = message;
+        }
+
+        function startScanning() {
+            if (isCameraActive || !scanTab.selected) return;
+
+            if (!html5QrCode) {
+                 html5QrCode = new Html5Qrcode("qr-reader", { verbose: false });
+            }
+
+            qrReaderDiv.style.display = 'block';
+            scannerMessage.style.display = 'none';
+
+            const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
+            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure)
+                .then(() => {
+                    isCameraActive = true;
+                })
+                .catch(err => {
+                    isCameraActive = false;
+                    showScannerMessage(`無法啟動相機: ${err}\n\n請檢查相機權限，或嘗試使用右下角按鈕上傳圖片。`);
+                });
+        }
+
+        function stopScanning() {
+            if (isCameraActive && html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop()
+                    .then(() => { isCameraActive = false; })
+                    .catch(err => {
+                        console.error("停止掃描失敗", err);
+                        isCameraActive = false;
+                    });
+            }
+        }
+
+        resultDialog.addEventListener('close', () => {
+            openLinkBtn.style.display = 'none';
+            if (scanTab.selected) {
+                 startScanning();
+            }
+        });
+
+        copyResultBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(dialogContent.innerText)
+                .then(() => { console.log('複製成功'); })
+                .catch(err => console.error('複製失敗:', err));
+        });
+
+        uploadFab.addEventListener('click', () => qrImageInput.click());
+        qrImageInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                const imageFile = e.target.files[0];
+                stopScanning();
+
+                 if (!html5QrCode) {
+                    html5QrCode = new Html5Qrcode("qr-reader", { verbose: false });
+                 }
+
+                html5QrCode.scanFile(imageFile, true)
+                    .then(onScanSuccess)
+                    .catch(err => {
+                        alert(`從圖片掃描失敗: ${err}`);
+                    });
+            }
+        });
+
+        // --- 手勢滑動切換 ---
+        let touchstartX = 0;
+        let touchendX = 0;
+        const gestureZone = document.querySelector('.container');
+
+        gestureZone.addEventListener('touchstart', (event) => {
+            touchstartX = event.changedTouches[0].screenX;
+        }, { passive: true });
+
+        gestureZone.addEventListener('touchend', (event) => {
+            touchendX = event.changedTouches[0].screenX;
+            handleGesture();
+        }, { passive: true });
+
+        function handleGesture() {
+            if (Math.abs(touchendX - touchstartX) < 50) return;
+            if (touchendX < touchstartX) { switchTabs(false); }
+            if (touchendX > touchstartX) { switchTabs(true); }
+        }
+
+        // --- 初始狀態設定 ---
+        switchTabs(true);
+
+    });
+</script>
+
+</body>
+</html>
